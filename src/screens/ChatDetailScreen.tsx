@@ -1,12 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { io, Socket } from "socket.io-client";
+import { useSocket } from "../hooks/useSocket";
+import TypingIndicator from "../components/TypingIndicator";
+import ImageIcon from "../icons/image";
 
 interface Message {
   content: string;
-  type: "sent" | "received" | "system";
+  type: "sent" | "received" | "text";
   sender: string;
+  avatar?: string;
   time: string;
+  imageUrl?: string;
+}
+
+interface TypingUser {
+  userId: number;
+  username: string;
+  avatar?: string;
 }
 
 const ChatDetailScreen: React.FC = () => {
@@ -14,196 +24,338 @@ const ChatDetailScreen: React.FC = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState("");
-  const [typingUser, setTypingUser] = useState<string | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+  const [chatInfo, setChatInfo] = useState<any>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem("token");
   const userId = localStorage.getItem("userId");
+  const userAvatar = localStorage.getItem("avatar") || "/default-avatar.png";
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingTimeRef = useRef<number>(0);
+
+  const {
+    isConnected,
+    typingUsers: socketTypingUsers,
+    joinChat,
+    leaveChat,
+    startTyping,
+    stopTyping,
+    sendMessage,
+    getOnlineUsers,
+    socket,
+  } = useSocket(token || "");
 
   useEffect(() => {
     if (!token || !userId) {
       navigate("/login");
       return;
     }
+
     if (!chatId) return;
 
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`http://localhost:4000/api/chat/${chatId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Không lấy được tin nhắn");
+        const res = await fetch(
+          `https://vietsocial-be-production.up.railway.app/api/chat/${chatId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         const data = await res.json();
-        console.log("data", data.messages);
-        const _messages = data.messages
 
-        if (Array.isArray(_messages)) {
-          setMessages(
-            _messages.map((msg: any) => ({
-              content: msg.content,
-              type: msg.senderId == userId ? "sent" : "received",
-              sender: msg.senderId == userId ? "You" : `User ${msg.senderId}`,
-              time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : new Date().toLocaleTimeString(),
-            }))
-          );
-        }
-      } catch (err) {
-        // Optionally handle error
-      }
-    };
-
-    fetchMessages();
-    // eslint-disable-next-line
-  }, [chatId, token, userId, navigate]);
-
-  useEffect(() => {
-    if (!token || !userId) {
-      navigate("/login");
-      return;
-    }
-    const socket = io("http://localhost:4000", {
-      auth: { token, userId },
-      transports: ["websocket", "polling"],
-    });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      socket.emit("join_chat", { chatId, userId });
-      socket.emit("get_chat_history", { chatId });
-    });
-
-    socket.on("receive_message", (msg: any) => {
-      const content = msg.content;
-      const sender = msg.senderId == userId ? "You" : `User ${msg.senderId}`;
-      const type = msg.senderId == userId ? "sent" : "received";
-      setMessages((prev) => [
-        ...prev,
-        {
-          content,
-          type,
-          sender,
-          time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : new Date().toLocaleTimeString(),
-        },
-      ]);
-    });
-
-    socket.on("chat_history", (data: any) => {
-      if (Array.isArray(data.messages)) {
         setMessages(
           data.messages.map((msg: any) => ({
             content: msg.content,
             type: msg.senderId == userId ? "sent" : "received",
-            sender: msg.senderId == userId ? "You" : `User ${msg.senderId}`,
-            time: msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : new Date().toLocaleTimeString(),
+            sender:
+              msg.senderId == userId
+                ? "Bạn"
+                : msg.sender.name || `User ${msg.senderId}`,
+            avatar:
+              msg.senderId == userId
+                ? userAvatar
+                : msg.sender?.avatar || "/default-avatar.png",
+            time: new Date(msg.createdAt).toLocaleTimeString(),
+            imageUrl: msg.imageUrl,
           }))
         );
+        setChatInfo(data.chat);
+      } catch (err) {
+        console.error("Fetch message error:", err);
       }
-    });
+    };
 
-    socket.on("user_typing", (data: any) => {
-      if (data.userId != userId) setTypingUser(data.userId);
-    });
-    socket.on("user_stopped_typing", (data: any) => {
-      if (data.userId != userId) setTypingUser(null);
-    });
+    fetchMessages();
+  }, [chatId, token, userId, userAvatar, navigate]);
+
+  useEffect(() => {
+    if (isConnected && chatId) {
+      joinChat(Number(chatId));
+      getOnlineUsers(Number(chatId));
+    }
 
     return () => {
-      socket.disconnect();
+      if (chatId) leaveChat(Number(chatId));
     };
-    // eslint-disable-next-line
-  }, [chatId, token, userId]);
+  }, [isConnected, chatId]);
 
-  // Auto scroll to bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    if (!socket || !userId) return;
+
+    const handleReceiveMessage = (msg: any) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          content: msg.content,
+          type: msg.senderId == userId ? "sent" : "received",
+          sender:
+            msg.senderId == userId
+              ? "Bạn"
+              : msg.sender.name || `User ${msg.senderId}`,
+          avatar:
+            msg.senderId == userId
+              ? userAvatar
+              : msg.sender?.avatar || "/default-avatar.png",
+          time: new Date(msg.createdAt).toLocaleTimeString(),
+          imageUrl: msg.imageUrl,
+        },
+      ]);
+    };
+
+    socket.on("receive_message", handleReceiveMessage);
+
+    return () => {
+      socket.off("receive_message", handleReceiveMessage);
+    };
+  }, [socket, userId, userAvatar]);
+
+  useEffect(() => {
+    const currentTyping = socketTypingUsers
+      .filter((t) => t.chatId === Number(chatId))
+      .map((t) => ({
+        ...t,
+        avatar:
+          t.userId == Number(userId)
+            ? userAvatar
+            : chatInfo?.participants?.find((p: any) => p.id === t.userId)
+                ?.avatar,
+      }));
+    setTypingUsers(currentTyping);
+  }, [socketTypingUsers, chatId, chatInfo, userAvatar, userId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = () => {
-    if (socketRef.current && message.trim()) {
-      socketRef.current.emit("send_message", {
-        chatId: Number(chatId),
-        message: { content: message },
-      });
+  const handleTyping = () => {
+    const now = Date.now();
+    if (now - lastTypingTimeRef.current > 500) {
+      if (!isTyping && chatId) {
+        setIsTyping(true);
+        startTyping(Number(chatId));
+        lastTypingTimeRef.current = now;
+      }
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    typingTimeoutRef.current = setTimeout(() => {
+      if (chatId) {
+        setIsTyping(false);
+        stopTyping(Number(chatId));
+      }
+    }, 2000);
+
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleSendMessage = () => {
+    if (message.trim() && chatId) {
+      sendMessage(Number(chatId), { content: message });
       setMessage("");
+      setIsTyping(false);
+      stopTyping(Number(chatId));
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
   };
 
-  const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      sendMessage();
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
+    handleTyping();
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     } else {
-      if (socketRef.current && chatId && userId) {
-        socketRef.current.emit("typing", { chatId, userId });
-        setTimeout(() => {
-          if (socketRef.current) {
-            socketRef.current.emit("stop_typing", { chatId, userId });
-          }
-        }, 1000);
-      }
+      handleTyping();
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !chatId || !token) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Chỉ chấp nhận file hình ảnh");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File quá lớn. Tối đa 10MB");
+      return;
+    }
+
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await fetch(
+        `https://vietsocial-be-production.up.railway.app/api/chat/${chatId}/upload-image`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) throw new Error("Upload failed");
+      const result = await response.json();
+      console.log("Image uploaded:", result);
+    } catch (error) {
+      console.error("Image upload error:", error);
+      alert("Không thể upload ảnh");
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click();
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
-      <div className="w-full max-w-2xl bg-white rounded shadow p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Chat Room {chatId}</h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-blue-200 flex justify-center items-center px-4 py-6">
+      <div className="w-full max-w-md h-full flex flex-col bg-white shadow-xl rounded-2xl overflow-hidden border border-blue-100">
+        {/* Header */}
+        <div className="flex items-center px-5 py-4 bg-blue-50 border-b border-blue-100">
           <button
             onClick={() => navigate("/chats")}
-            className="text-sm text-blue-500 hover:underline"
+            className="text-blue-600 hover:text-blue-800 font-medium"
           >
-            Quay lại danh sách
+            ← Trở về
           </button>
+          <div className="ml-4 flex-1">
+            <h2 className="text-lg font-semibold text-blue-800 truncate">
+              {chatInfo?.displayUser?.name || `Chat Room ${chatId}`}
+            </h2>
+            <div className="text-sm text-gray-600 flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isConnected ? "bg-green-400" : "bg-red-400"
+                }`}
+              ></span>
+              <span>{isConnected ? "Đã kết nối" : "Mất kết nối"}</span>
+              {typingUsers.length > 0 && (
+                <span className="text-yellow-600 animate-pulse">
+                  • {typingUsers.length} đang nhập
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="border rounded h-64 overflow-y-auto p-3 bg-gray-50 mb-2" style={{ position: "relative" }}>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gray-50 max-h-[500px]">
           {messages.map((msg, idx) => (
             <div
               key={idx}
-              className={`mb-2 flex flex-col ${msg.type === "sent" ? "items-end" : "items-start"
-                }`}
+              className={`flex items-end gap-2 ${
+                msg.type === "sent" ? "justify-end" : "justify-start"
+              }`}
             >
-              <div className="font-semibold text-blue-700 mr-2">{msg.sender}:</div>
               <div
-                className={`inline-block px-3 py-1 rounded ${msg.type === "sent"
-                    ? "bg-blue-100 text-blue-900"
-                    : "bg-gray-200 text-gray-900"
-                  }`}
+                className={`px-4 py-2 rounded-2xl shadow text-sm max-w-[75%] ${
+                  msg.type === "sent"
+                    ? "bg-blue-500 text-white rounded-br-none"
+                    : "bg-white text-gray-800 border rounded-bl-none"
+                }`}
               >
-                {msg.content}
+                <div>
+                  {!msg.imageUrl ? <p>{msg.content}</p> : ""}
+                  {msg.imageUrl && (
+                    <img
+                      src={msg.imageUrl}
+                      alt="sent image"
+                      className="mt-2 rounded-md max-h-60 object-cover max-w-full border"
+                    />
+                  )}
+                </div>
+                <div className="text-xs text-right opacity-60 mt-1">
+                  {msg.time}
+                </div>
               </div>
-              <div className="text-[10px] text-gray-400">{msg.time}</div>
             </div>
           ))}
-          {/* This div is used as a scroll target for auto-scroll */}
+          <TypingIndicator typingUsers={typingUsers} />
           <div ref={messagesEndRef} />
         </div>
-        <div
-          style={{ display: typingUser ? "block" : "none" }}
-          className="text-xs text-gray-500 mb-2"
-        >
-          {typingUser && `User ${typingUser} is typing...`}
-        </div>
-        <div className="flex gap-2 mb-2">
-          <input
-            className="flex-1 px-3 py-2 border rounded"
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            placeholder="Type a message..."
-            onKeyDown={handleInputKeyDown}
-          />
-          <button
-            onClick={sendMessage}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-            disabled={!message.trim()}
-          >
-            Send
-          </button>
+
+        {/* Input */}
+        <div className="px-4 py-3 bg-white border-t border-gray-200">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleImageButtonClick}
+              disabled={uploadingImage || !isConnected}
+              className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 disabled:opacity-50"
+              title="Gửi hình ảnh"
+            >
+              <ImageIcon />
+            </button>
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+
+            <input
+              className="flex-1 px-4 py-3 rounded-full border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm"
+              placeholder="Nhập tin nhắn..."
+              value={message}
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
+              disabled={!isConnected}
+            />
+
+            <button
+              onClick={handleSendMessage}
+              className="px-5 py-3 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300"
+              disabled={!message.trim() || !isConnected}
+            >
+              Gửi
+            </button>
+          </div>
+
+          {uploadingImage && (
+            <div className="mt-2 text-sm text-blue-500 text-center animate-pulse">
+              Đang tải hình ảnh...
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default ChatDetailScreen; 
+export default ChatDetailScreen;
