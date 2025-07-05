@@ -155,12 +155,28 @@
 
 /* Enhanced mobile optimizations */
 @media (max-width: 640px) {
-  /* Prevent zoom on input focus */
+  /* Prevent zoom on input focus - CRITICAL FIX */
   input[type="text"], 
   input[type="email"], 
   input[type="password"],
-  textarea {
-    font-size: 16px;
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+    transform: none !important;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+  
+  /* Additional zoom prevention */
+  input:focus,
+  textarea:focus,
+  select:focus {
+    font-size: 16px !important;
+    transform: none !important;
+    -webkit-transform: none !important;
   }
   
   /* Better touch targets */
@@ -211,6 +227,13 @@
   /* Enhanced mobile animations */
   .animate-fade-in {
     animation-duration: 0.3s;
+  }
+  
+  /* Prevent zoom on all interactive elements */
+  * {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 

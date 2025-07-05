@@ -300,12 +300,7 @@ const ChatDetailScreen: React.FC = () => {
                       : "bg-white text-gray-800 border border-gray-100 rounded-bl-md shadow-gray-100/50 hover:shadow-gray-200/50"
                   }`}
                 >
-                  {/* Enhanced Sender name for received messages */}
-                  {msg.type === "received" && (
-                    <div className="text-xs font-semibold text-blue-600 mb-1.5">
-                      {msg.sender}
-                    </div>
-                  )}
+                 
                   
                   {/* Enhanced Message content */}
                   <div className="break-words">
@@ -373,13 +368,14 @@ const ChatDetailScreen: React.FC = () => {
           {/* Enhanced Message input */}
           <div className="flex-1 relative">
             <input
-              className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 text-sm pr-12 transition-all duration-200 bg-white/80 backdrop-blur-sm shadow-sm"
+              className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 text-base pr-12 transition-all duration-200 bg-white/80 backdrop-blur-sm shadow-sm"
               placeholder="Nhập tin nhắn..."
               value={message}
               onChange={handleInputChange}
               onKeyDown={handleInputKeyDown}
               disabled={!isConnected}
               maxLength={1000}
+              style={{ fontSize: '16px' }}
             />
             
             {/* Enhanced Character counter */}
