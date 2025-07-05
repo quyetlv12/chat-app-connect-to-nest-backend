@@ -31,7 +31,7 @@ const TypingIndicator: React.FC<TypingIndicatorProps> = ({ typingUsers, classNam
       <div className="flex items-end gap-3 max-w-[85%] sm:max-w-[75%]">
         {/* Enhanced Typing users avatars */}
         <div className="flex -space-x-2">
-          {typingUsers.slice(0, 3).map((user, index) => (
+          {typingUsers.slice(0, 3).map((user) => (
             <div key={user.userId} className="relative group">
               <div className="relative">
                 <img

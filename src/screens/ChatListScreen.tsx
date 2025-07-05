@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSocket } from "../hooks/useSocket";
 import RealTimeNotifications from "../components/RealTimeNotifications";
-import OnlineStats from "../components/OnlineStats";
+import { useSocket } from "../hooks/useSocket";
 
 interface ChatThread {
   id: number;
@@ -57,67 +56,6 @@ interface ActiveUser {
   lastSeen?: string;
 }
 
-const ActiveUsers: React.FC<{ users: ActiveUser[] }> = ({ users }) => (
-  <div className="w-full mb-6">
-    <h3 className="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-      Người dùng đang hoạt động
-    </h3>
-    <div className="space-y-3">
-      {users.map((user) => (
-        <div
-          key={user.id}
-          className="flex items-center gap-3 px-4 py-3 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg hover:shadow-xl hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 active:bg-blue-100/50 transition-all duration-200 transform hover:scale-[1.01]"
-        >
-          <div className="relative flex-shrink-0">
-            <div className="relative group">
-              <img
-                src={user.avatar}
-                alt={user.name}
-                className="w-12 h-12 rounded-full border-3 border-white shadow-lg ring-2 ring-blue-100 group-hover:ring-blue-200 transition-all duration-200 object-cover"
-              />
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
-            </div>
-            <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-3 border-white rounded-full shadow-lg ${
-              user.status === 'online' ? "bg-gradient-to-r from-green-400 to-emerald-400" : 
-              user.status === 'typing' ? "bg-gradient-to-r from-amber-400 to-orange-400" : "bg-gradient-to-r from-gray-300 to-gray-400"
-            }`}></span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-bold text-gray-800 truncate">{user.name}</span>
-              {user.status === 'online' && (
-                <span className="text-xs text-green-500 font-bold">● Online</span>
-              )}
-              {user.status === 'typing' && (
-                <span className="text-xs text-amber-500 font-bold">● Đang nhập</span>
-              )}
-            </div>
-            {user.lastSeen && user.status === 'offline' && (
-              <span className="text-xs text-gray-500 font-medium">Hoạt động lần cuối: {user.lastSeen}</span>
-            )}
-          </div>
-          {user.status === 'typing' && (
-            <div className="flex gap-1.5 flex-shrink-0">
-              <div className="w-2.5 h-2.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full animate-bounce shadow-sm"></div>
-              <div className="w-2.5 h-2.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2.5 h-2.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-          )}
-        </div>
-      ))}
-      {users.length === 0 && (
-        <div className="text-center text-gray-500 py-8">
-          <div className="w-16 h-16 mx-auto mb-3 text-gray-300">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-            </svg>
-          </div>
-          <p className="font-medium">Không có người dùng nào đang hoạt động</p>
-        </div>
-      )}
-    </div>
-  </div>
-);
 
 const FriendList: React.FC<{ friends: (Friend & { isOnline: boolean })[] }> = ({ friends }) => (
   <div className="w-full mb-6">
@@ -172,7 +110,6 @@ const ChatListScreen: React.FC = () => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [friendsError, setFriendsError] = useState<string | null>(null);
-  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
 
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
@@ -298,7 +235,6 @@ const ChatListScreen: React.FC = () => {
       }
     });
 
-    setActiveUsers(activeUsersList);
   }, [onlineUsers, typingUsers, friends]);
 
   return (
