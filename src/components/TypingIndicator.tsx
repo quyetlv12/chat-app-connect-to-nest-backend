@@ -27,42 +27,45 @@ const TypingIndicator: React.FC<TypingIndicatorProps> = ({ typingUsers, classNam
   };
 
   return (
-    <div className={`flex justify-start mb-4 animate-fade-in ${className}`}>
-      <div className="flex items-end gap-3 max-w-xs">
-        {/* Typing users avatars */}
+    <div className={`flex justify-start animate-fade-in ${className}`}>
+      <div className="flex items-end gap-3 max-w-[85%] sm:max-w-[75%]">
+        {/* Enhanced Typing users avatars */}
         <div className="flex -space-x-2">
-          {typingUsers.slice(0, 4).map((user) => (
+          {typingUsers.slice(0, 3).map((user, index) => (
             <div key={user.userId} className="relative group">
-              <img
-                src={user.avatar || `https://i.pravatar.cc/150?u=${user.userId}`}
-                alt={user.username}
-                className="w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover transition-transform group-hover:scale-110"
-              />
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-400 border-2 border-white rounded-full animate-pulse-typing"></div>
+              <div className="relative">
+                <img
+                  src={user.avatar || `https://i.pravatar.cc/150?u=${user.userId}`}
+                  alt={user.username}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-3 border-white shadow-lg ring-2 ring-amber-100 group-hover:ring-amber-200 transition-all duration-200 object-cover"
+                />
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+              </div>
+              <span className="absolute -bottom-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-amber-400 to-orange-400 border-3 border-white rounded-full animate-pulse-typing shadow-lg"></span>
               
-              {/* Tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              {/* Enhanced Tooltip for desktop */}
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-10 hidden sm:block shadow-xl">
                 {user.username}
                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
               </div>
             </div>
           ))}
-          {typingUsers.length > 4 && (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-medium">
-              +{typingUsers.length - 4}
+          {typingUsers.length > 3 && (
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 border-3 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold">
+              +{typingUsers.length - 3}
             </div>
           )}
         </div>
         
-        {/* Typing bubble */}
-        <div className="bg-gradient-to-r from-gray-100 to-gray-200 px-4 py-3 rounded-2xl shadow-sm border border-gray-200">
-          <div className="text-sm text-gray-700 mb-2 font-medium">
+        {/* Enhanced Typing bubble */}
+        <div className="bg-white border border-gray-100 px-4 py-3 rounded-2xl shadow-lg rounded-bl-md hover:shadow-xl transition-all duration-200">
+          <div className="text-xs sm:text-sm text-gray-700 mb-2 font-semibold">
             {getTypingMessage()}
           </div>
-          <div className="flex gap-1">
-            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          <div className="flex gap-1.5">
+            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full animate-bounce shadow-sm"></div>
+            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full animate-bounce shadow-sm" style={{ animationDelay: '0.2s' }}></div>
           </div>
         </div>
       </div>
