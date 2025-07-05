@@ -64,7 +64,7 @@ const ChatDetailScreen: React.FC = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        const data = await res.json();
+        const data = await res.json();        
 
         setMessages(
           data.messages.map((msg: any) => ({
@@ -82,7 +82,7 @@ const ChatDetailScreen: React.FC = () => {
             imageUrl: msg.imageUrl,
           }))
         );
-        setChatInfo(data.chat);
+        setChatInfo(data);
       } catch (err) {
         console.error("Fetch message error:", err);
       }
@@ -257,15 +257,16 @@ const ChatDetailScreen: React.FC = () => {
           </button>
           
           <div className="ml-3 flex-1 min-w-0">
-            <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              {chatInfo?.displayUser?.name || `Chat ${chatId}`}
+            <h2 className="text-lg text-center flex justify-start font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              {chatInfo?.displayUser?.name}
+              
             </h2>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div className={`w-2.5 h-2.5 rounded-full ${
                 isConnected ? "bg-gradient-to-r from-green-400 to-emerald-400 animate-pulse" : "bg-gradient-to-r from-red-400 to-pink-400"
               }`}></div>
               <span className="truncate font-medium">
-                {isConnected ? "Đã kết nối" : "Mất kết nối"}
+                {isConnected ? "Đang hoạt động" : "Mất kết nối"}
               </span>
               {typingUsers.length > 0 && (
                 <span className="text-amber-600 animate-pulse font-medium truncate">
