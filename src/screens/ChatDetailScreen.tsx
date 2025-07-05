@@ -25,7 +25,6 @@ const ChatDetailScreen: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [chatInfo, setChatInfo] = useState<any>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
